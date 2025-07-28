@@ -266,7 +266,8 @@ EOF
 
 # Habilitar servicios para arranque automático
 echo "Habilitando servicios en boot..."
-systemctl enable docker containerd kubelet
+# docker service may not exist; habilitando containerd y kubelet
+systemctl enable containerd kubelet
 
 # Ejecución según rol
 echo "Configurando netplan..."
