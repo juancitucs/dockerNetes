@@ -81,6 +81,8 @@ function init_master() {
   echo "Usa este comando en los nodos worker:"
   echo "$JOIN_CMD"
   kubectl taint nodes master node-role.kubernetes.io/control-plane- || true
+  NODE_NAME=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')
+  kubectl taint nodes "$NODE_NAME" node-role.kubernetes.io/control-plane- || true
   mkdir -p /home/administrador/.kube
   cp -i /etc/kubernetes/admin.conf /home/administrador/.kube/config
   chown administrador:administrador /home/administrador/.kube/config
@@ -248,14 +250,15 @@ EOF
   echo "Despliegue de WordPress y MySQL completado."
 }
 
+# Habilitar servicios
+# Nota: Esta parte ahora se realiza después de instalar containerd y kubelet
+
 # Flujo principal
 if [[ "$ROLE" == "master" ]]; then
   configure_netplan "$MASTER_IP"
   prepare_system
   install_containerd
   install_k8s_tools
-  echo "Habilitando servicios para inicio automático..."
-  systemctl enable containerd kubelet
   init_master
   install_calico
   install_localpath
@@ -271,7 +274,6 @@ elif [[ "$ROLE" == "worker" ]]; then
   prepare_system
   install_containerd
   install_k8s_tools
-  echo "Habilitando servicios para inicio automático..."
   systemctl enable containerd kubelet
   if [[ -z "$JOIN_CMD" ]]; then
     echo "Debe proporcionar el comando de join: kubeadm join ..." >&2
@@ -298,4 +300,3 @@ for i in {1..30}; do
     echo "❌ No se pudo verificar WordPress en http://$WP_IP:30090 tras 150 segundos."
     exit 1
   fi
-done
