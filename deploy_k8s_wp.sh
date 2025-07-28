@@ -75,16 +75,15 @@ function install_k8s_tools() {
 function init_master() {
   kubeadm init --pod-network-cidr=10.10.0.0/16 --ignore-preflight-errors=NumCPU,Mem | tee /root/kubeinit.log
   mkdir -p $HOME/.kube
-  cp /etc/kubernetes/admin.conf $HOME/.kube/config
+  cp -f /etc/kubernetes/admin.conf $HOME/.kube/config
   chown $(id -u):$(id -g) $HOME/.kube/config
   JOIN_CMD=$(grep -A2 "kubeadm join" /root/kubeinit.log | tr '\n' ' ')
   echo "Usa este comando en los nodos worker:"
   echo "$JOIN_CMD"
-  kubectl taint nodes master node-role.kubernetes.io/control-plane- || true
   NODE_NAME=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')
   kubectl taint nodes "$NODE_NAME" node-role.kubernetes.io/control-plane- || true
   mkdir -p /home/administrador/.kube
-  cp -i /etc/kubernetes/admin.conf /home/administrador/.kube/config
+  cp -f /etc/kubernetes/admin.conf /home/administrador/.kube/config
   chown administrador:administrador /home/administrador/.kube/config
 }
 
@@ -242,16 +241,13 @@ spec:
         - name: wordpress-persistent-storage
           mountPath: /var/www/html
       volumes:
-      - name: wordpress-persistent-storage
+      - name: wordpress-persistent-volume
         persistentVolumeClaim:
           claimName: wordpress-pv-claim
 EOF
 
   echo "Despliegue de WordPress y MySQL completado."
 }
-
-# Habilitar servicios
-# Nota: Esta parte ahora se realiza después de instalar containerd y kubelet
 
 # Flujo principal
 if [[ "$ROLE" == "master" ]]; then
