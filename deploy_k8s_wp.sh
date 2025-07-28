@@ -37,15 +37,20 @@ EOF
 
 function prepare_system() {
   apt update
-  apt install -y curl ca-certificates gnupg lsb-release
+  # Desactivar swap en esta ejecución
   swapoff -a
+  # Desactivar swap permanentemente al comentar en fstab
   sed -i '/ swap / s/^/#/' /etc/fstab
+
+  # Cargar módulos de red necesarios
   modprobe overlay
   modprobe br_netfilter
   tee /etc/modules-load.d/k8s.conf <<EOF
 overlay
 br_netfilter
 EOF
+
+  # Parámetros sysctl para Kubernetes
   cat <<EOF >/etc/sysctl.d/k8s.conf
 net.bridge.bridge-nf-call-iptables  = 1
 net.bridge.bridge-nf-call-ip6tables = 1
@@ -64,9 +69,12 @@ function install_containerd() {
 }
 
 function install_k8s_tools() {
+  apt install -y apt-transport-https ca-certificates curl gnupg
   rm -f /usr/share/keyrings/kubernetes-archive-keyring.gpg
-  curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | gpg --yes --dearmor -o /usr/share/keyrings/kubernetes-archive-keyring.gpg
-  echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /" > /etc/apt/sources.list.d/kubernetes.list
+  curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key \
+    | gpg --yes --dearmor -o /usr/share/keyrings/kubernetes-archive-keyring.gpg
+  echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /" \
+    > /etc/apt/sources.list.d/kubernetes.list
   apt update
   apt install -y kubelet kubeadm kubectl
   systemctl enable kubelet
@@ -74,16 +82,23 @@ function install_k8s_tools() {
 
 function init_master() {
   kubeadm init --pod-network-cidr=10.10.0.0/16 --ignore-preflight-errors=NumCPU,Mem | tee /root/kubeinit.log
+
+  # Configurar kubectl para root y para el usuario 'administrador'
   mkdir -p $HOME/.kube
   cp /etc/kubernetes/admin.conf $HOME/.kube/config
   chown $(id -u):$(id -g) $HOME/.kube/config
+
+  mkdir -p /home/administrador/.kube
+  cp /etc/kubernetes/admin.conf /home/administrador/.kube/config
+  chown administrador:administrador /home/administrador/.kube/config
+
+  # Obtener y mostrar comando join
   JOIN_CMD=$(grep -A2 "kubeadm join" /root/kubeinit.log | tr '\n' ' ')
   echo "Usa este comando en los nodos worker:"
-  echo "$JOIN_CMD"
+  echo "  $JOIN_CMD"
+
+  # Permitir scheduling en el master
   kubectl taint nodes master node-role.kubernetes.io/control-plane- || true
-  mkdir -p /home/administrador/.kube
-  cp -i /etc/kubernetes/admin.conf /home/administrador/.kube/config
-  chown administrador:administrador /home/administrador/.kube/config
 }
 
 function install_calico() {
@@ -99,6 +114,7 @@ function install_localpath() {
 }
 
 function deploy_wordpress() {
+  # Secreto de MySQL
   cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Secret
@@ -109,6 +125,7 @@ stringData:
   password: "1234"
 EOF
 
+  # PVCs
   cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -135,6 +152,7 @@ spec:
       storage: 10Gi
 EOF
 
+  # MySQL
   cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Service
@@ -180,7 +198,6 @@ spec:
               key: password
         ports:
         - containerPort: 3306
-          name: mysql
         volumeMounts:
         - name: mysql-persistent-storage
           mountPath: /var/lib/mysql
@@ -190,6 +207,7 @@ spec:
           claimName: mysql-pv-claim
 EOF
 
+  # WordPress
   cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Service
@@ -235,7 +253,6 @@ spec:
           value: "wordpress"
         ports:
         - containerPort: 80
-          name: wordpress
         volumeMounts:
         - name: wordpress-persistent-storage
           mountPath: /var/www/html
@@ -248,11 +265,11 @@ EOF
   echo "Despliegue de WordPress y MySQL completado."
 }
 
-# Habilitar servicios
-echo "Habilitando servicios para inicio automático..."
+# Habilitar containerd y kubelet al arrancar
 systemctl enable containerd kubelet
 
 # Flujo principal
+echo "Configurando netplan..."
 if [[ "$ROLE" == "master" ]]; then
   configure_netplan "$MASTER_IP"
   prepare_system
@@ -285,17 +302,15 @@ fi
 
 # Verificar WordPress
 WP_IP=$(hostname -I | awk '{print $1}')
-echo "⏳ Esperando a que WordPress esté disponible en http://$WP_IP:30090 ..."
+echo "⏳ Esperando WordPress en http://$WP_IP:30090 ..."
 for i in {1..30}; do
   sleep 5
   if curl -s --max-time 2 http://$WP_IP:30090 | grep -q 'WordPress'; then
     echo "✅ WordPress está en línea en: http://$WP_IP:30090"
     exit 0
-  else
-    echo "... esperando ($i/30)"
   fi
-  if [[ $i -eq 30 ]]; then
-    echo "❌ No se pudo verificar WordPress en http://$WP_IP:30090 tras 150 segundos."
-    exit 1
-  fi
+  echo "... esperando ($i/30)"
 done
+
+echo "❌ No fue posible verificar WordPress tras 150s."
+exit 1
