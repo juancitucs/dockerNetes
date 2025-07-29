@@ -33,11 +33,10 @@ services:
       - wp_net
     deploy:
       mode: replicated
-      replicas: 3
+      replicas: 1  # Usar 1 para pruebas. Luego puedes subirlo a 3.
       restart_policy:
         condition: on-failure
-      placement:
-        constraints: [node.role == worker]
+      # Eliminado placement para permitir despliegue en el único nodo si no hay workers
 
 volumes:
   db_data:
