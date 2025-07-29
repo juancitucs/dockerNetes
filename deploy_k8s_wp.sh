@@ -241,7 +241,7 @@ spec:
         - name: wordpress-persistent-storage
           mountPath: /var/www/html
       volumes:
-      - name: wordpress-persistent-volume
+      - name: wordpress-persistent-storage
         persistentVolumeClaim:
           claimName: wordpress-pv-claim
 EOF
@@ -296,3 +296,4 @@ for i in {1..30}; do
     echo "❌ No se pudo verificar WordPress en http://$WP_IP:30090 tras 150 segundos."
     exit 1
   fi
+done
