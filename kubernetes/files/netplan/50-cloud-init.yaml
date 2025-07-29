@@ -1,7 +1,7 @@
 network:
   version: 2
   ethernets:
-    ${NET_IF}:
+    enp0s3:
       dhcp4: no
       addresses:
         - IPADDR/24
