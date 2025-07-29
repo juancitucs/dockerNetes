@@ -114,7 +114,7 @@ elif [[ "$ROLE" == "worker" ]]; then
   install_k8s_tools
 
   systemctl enable containerd kubelet
-
+  JOIN_CMD=$(cat joinCMD.txt)
   if [[ -z "$JOIN_CMD" ]]; then
     echo "Debe proporcionar el comando de join: kubeadm join ..." >&2
     exit 1
@@ -125,7 +125,9 @@ elif [[ "$ROLE" == "worker" ]]; then
   rm -rf /etc/cni/net.d /etc/kubernetes /var/lib/kubelet/*
 
   echo "🚀 Uniéndose al clúster con:"
+  
   echo "sudo $JOIN_CMD"
+  
   sudo $JOIN_CMD
 else
   echo "Uso: $0 <master|worker> [\"<join_command>\"]" >&2
