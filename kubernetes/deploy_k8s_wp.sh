@@ -13,7 +13,6 @@ JOIN_CMD=${2:-}
 MASTER_IP="10.10.10.10"
 WORKER1_IP="10.10.10.11"
 WORKER2_IP="10.10.10.12"
-NET_IF="enp0s3"
 YAML_DIR="$(dirname "$0")/files/yaml"
 
 function configure_netplan() {
