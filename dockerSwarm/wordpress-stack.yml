@@ -19,7 +19,7 @@ services:
         constraints: [node.role == manager]
 
   wordpress:
-    image: wordpress:php8.4-fpm
+    image: wordpress:latest
     ports:
       - 8080:80
     environment:
