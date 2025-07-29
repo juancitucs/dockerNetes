@@ -108,15 +108,25 @@ elif [[ "$ROLE" == "worker" ]]; then
     echo "No se reconoce la IP $CUR_IP, ajuste MASTER_IP/WORKER_IP en el script." >&2
     exit 1
   fi
+
   prepare_system
   install_containerd
   install_k8s_tools
+
   systemctl enable containerd kubelet
+
   if [[ -z "$JOIN_CMD" ]]; then
     echo "Debe proporcionar el comando de join: kubeadm join ..." >&2
     exit 1
   fi
-  $JOIN_CMD --ignore-preflight-errors=NumCPU,Mem
+
+  echo "🔄 Reiniciando configuración previa si existe..."
+  kubeadm reset -f
+  rm -rf /etc/cni/net.d /etc/kubernetes /var/lib/kubelet/*
+
+  echo "🚀 Uniéndose al clúster con:"
+  echo "sudo $JOIN_CMD"
+  sudo $JOIN_CMD
 else
   echo "Uso: $0 <master|worker> [\"<join_command>\"]" >&2
   exit 1
