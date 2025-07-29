@@ -112,23 +112,26 @@ elif [[ "$ROLE" == "worker" ]]; then
   prepare_system
   install_containerd
   install_k8s_tools
-
   systemctl enable containerd kubelet
-  JOIN_CMD=$(cat joinCMD.txt)
+
+  echo "🔄 Reiniciando configuración previa si existe..."
+  kubeadm reset -f
+  rm -rf /etc/cni/net.d
+  rm -rf /etc/kubernetes
+  rm -rf /var/lib/kubelet/*
+  rm -rf /var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/*
+  systemctl restart containerd
+  systemctl restart kubelet
+
   if [[ -z "$JOIN_CMD" ]]; then
     echo "Debe proporcionar el comando de join: kubeadm join ..." >&2
     exit 1
   fi
 
-  echo "🔄 Reiniciando configuración previa si existe..."
-  kubeadm reset -f
-  rm -rf /etc/cni/net.d /etc/kubernetes /var/lib/kubelet/*
-
   echo "🚀 Uniéndose al clúster con:"
-  
   echo "sudo $JOIN_CMD"
-  
   sudo $JOIN_CMD
+
 else
   echo "Uso: $0 <master|worker> [\"<join_command>\"]" >&2
   exit 1
