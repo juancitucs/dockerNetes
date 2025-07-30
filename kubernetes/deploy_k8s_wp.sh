@@ -112,7 +112,6 @@ elif [[ "$ROLE" == "worker" ]]; then
   prepare_system
   install_containerd
   install_k8s_tools
-  systemctl enable containerd kubelet
 
   echo "🔄 Reiniciando configuración previa si existe..."
   kubeadm reset -f
@@ -120,8 +119,15 @@ elif [[ "$ROLE" == "worker" ]]; then
   rm -rf /etc/kubernetes
   rm -rf /var/lib/kubelet/*
   rm -rf /var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/*
+  rm -rf /etc/cni/net.d /etc/kubernetes /var/lib/kubelet /var/lib/etcd
+  rm -rf /var/lib/containerd/io.containerd.snapshotter.v1.overlayfs
+  rm -rf /var/lib/containerd/overlayfs
+  rm -rf /var/lib/containerd/metadata.db
+  rm -rf /opt/cni/bin/*
+  
   systemctl restart containerd
   systemctl restart kubelet
+  systemctl enable containerd kubelet
 
   if [[ -z "$JOIN_CMD" ]]; then
     echo "Debe proporcionar el comando de join: kubeadm join ..." >&2
