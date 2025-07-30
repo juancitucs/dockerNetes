@@ -129,6 +129,7 @@ elif [[ "$ROLE" == "worker" ]]; then
   systemctl restart kubelet
   systemctl enable containerd kubelet
 
+  JOIN_CMD=$(cat joinCMD.txt)
   if [[ -z "$JOIN_CMD" ]]; then
     echo "Debe proporcionar el comando de join: kubeadm join ..." >&2
     exit 1
