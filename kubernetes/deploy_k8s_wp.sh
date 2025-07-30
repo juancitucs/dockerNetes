@@ -120,6 +120,7 @@ elif [[ "$ROLE" == "worker" ]]; then
   rm -rf /var/lib/containerd
 
   echo "🚀 Reinstalando containerd limpio..."
+  apt install -y containerd
   mkdir -p /etc/containerd
   containerd config default > /etc/containerd/config.toml
   sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
