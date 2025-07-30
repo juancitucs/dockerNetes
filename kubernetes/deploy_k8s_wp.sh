@@ -102,47 +102,44 @@ if [[ "$ROLE" == "master" ]]; then
   deploy_wordpress
 elif [[ "$ROLE" == "worker" ]]; then
   CUR_IP=$(hostname -I | awk '{print $1}')
-  if [[ "$CUR_IP" == "$WORKER1_IP" || "$CUR_IP" == "$WORKER2_IP" ]]; then
-    configure_netplan "$CUR_IP"
-  else
+  if [[ "$CUR_IP" != "$WORKER1_IP" && "$CUR_IP" != "$WORKER2_IP" ]]; then
     echo "No se reconoce la IP $CUR_IP, ajuste MASTER_IP/WORKER_IP en el script." >&2
     exit 1
   fi
-
+  configure_netplan "$CUR_IP"
   prepare_system
   install_containerd
   install_k8s_tools
 
-  echo "🔄 Reiniciando configuración previa si existe..."
-  kubeadm reset -f
-  rm -rf /etc/cni/net.d
-  rm -rf /etc/kubernetes
-  rm -rf /var/lib/kubelet/*
-  rm -rf /var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/*
-  rm -rf /etc/cni/net.d /etc/kubernetes /var/lib/kubelet /var/lib/etcd
-  rm -rf /var/lib/containerd/io.containerd.snapshotter.v1.overlayfs
-  rm -rf /var/lib/containerd/overlayfs
-  rm -rf /var/lib/containerd/metadata.db
-  rm -rf /opt/cni/bin/*
-  
-  systemctl restart containerd
-  systemctl restart kubelet
-  systemctl enable containerd kubelet
+  echo "🔄 Deteniendo servicios antes de purgar..."
+  systemctl stop kubelet containerd
 
-  JOIN_CMD=$(cat joinCMD.txt)
+  echo "🧹 Limpiando configuraciones previas..."
+  kubeadm reset -f || true
+  rm -rf /etc/cni/net.d /etc/kubernetes /var/lib/kubelet /var/lib/etcd /opt/cni/bin/*
+  rm -rf /var/lib/containerd
+
+  echo "🚀 Reinstalando containerd limpio..."
+  apt install -y containerd
+  mkdir -p /etc/containerd
+  containerd config default > /etc/containerd/config.toml
+  sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+  systemctl enable --now containerd
+
+  echo "✅ Reiniciando kubelet..."
+  systemctl enable --now kubelet
+
+  JOIN_CMD="$(cat joinCMD.txt)"
   if [[ -z "$JOIN_CMD" ]]; then
-    echo "Debe proporcionar el comando de join: kubeadm join ..." >&2
+    echo "Debe proporcionar el comando de join en /root/joinCMD.txt" >&2
     exit 1
   fi
 
-  echo "🚀 Uniéndose al clúster con:"
+  echo "🚀 Uniéndose al clúster:"
   echo "sudo $JOIN_CMD"
   sudo $JOIN_CMD
-
-else
-  echo "Uso: $0 <master|worker> [\"<join_command>\"]" >&2
-  exit 1
 fi
+
 
 # Verificar WordPress
 WP_IP=$(hostname -I | awk '{print $1}')
