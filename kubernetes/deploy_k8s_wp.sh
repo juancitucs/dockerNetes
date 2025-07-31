@@ -10,9 +10,9 @@ ROLE=${1:-}
 JOIN_CMD=${2:-}
 
 # Variables de red (ajustar según infraestructura)
-MASTER_IP="10.10.10.10"
-WORKER1_IP="10.10.10.11"
-WORKER2_IP="10.10.10.12"
+MASTER_IP="10.0.2.20"
+WORKER1_IP="10.0.2.21"
+WORKER2_IP="10.0.2.22"
 YAML_DIR="$(dirname "$0")/files/yaml"
 
 function configure_netplan() {
@@ -68,7 +68,7 @@ function init_master() {
   kubectl taint nodes "$NODE_NAME" node-role.kubernetes.io/control-plane- || true
   mkdir -p /home/administrador/.kube
   cp -f /etc/kubernetes/admin.conf /home/administrador/.kube/config
-  chown administrador:administrador /home/administrador/.kube/config
+  chown administrador:kubernetes /home/administrador/.kube/config
 }
 
 function install_calico() {
